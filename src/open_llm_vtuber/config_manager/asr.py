@@ -181,6 +181,29 @@ class GroqWhisperASRConfig(I18nMixin):
     }
 
 
+class GigaAMOnnxASRConfig(I18nMixin):
+    """Configuration for GigaAM ONNX ASR (Russian)."""
+
+    model_path: str = Field(..., alias="model_path")
+    model_type: str = Field("gigaam-v3-e2e-ctc", alias="model_type")
+    quantization: Optional[str] = Field(None, alias="quantization")
+
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "model_path": Description(
+            en="Path to directory with model.onnx, vocab.txt, config.yaml",
+            zh="模型目录路径（包含 model.onnx, vocab.txt, config.yaml）",
+        ),
+        "model_type": Description(
+            en="Model type (gigaam-v3-e2e-ctc or gigaam-v3-ctc)",
+            zh="模型类型（gigaam-v3-e2e-ctc 或 gigaam-v3-ctc）",
+        ),
+        "quantization": Description(
+            en="Model quantization (None or int8)",
+            zh="模型量化（None 或 int8）",
+        ),
+    }
+
+
 class SherpaOnnxASRConfig(I18nMixin):
     """Configuration for Sherpa Onnx ASR."""
 
@@ -299,7 +322,13 @@ class SherpaOnnxASRConfig(I18nMixin):
                     "sense_voice and tokens must be provided for sense_voice model type"
                 )
         elif model_type == "fire_red_asr":
-            if not all([values.fire_red_asr_encoder, values.fire_red_asr_decoder, values.tokens]):
+            if not all(
+                [
+                    values.fire_red_asr_encoder,
+                    values.fire_red_asr_decoder,
+                    values.tokens,
+                ]
+            ):
                 raise ValueError(
                     "fire_red_asr_encoder, fire_red_asr_decoder, and tokens must be provided for fire_red_asr model type"
                 )
@@ -318,6 +347,7 @@ class ASRConfig(I18nMixin):
         "fun_asr",
         "groq_whisper_asr",
         "sherpa_onnx_asr",
+        "gigaam_onnx_asr",
     ] = Field(..., alias="asr_model")
     azure_asr: Optional[AzureASRConfig] = Field(None, alias="azure_asr")
     faster_whisper: Optional[FasterWhisperConfig] = Field(None, alias="faster_whisper")
@@ -329,6 +359,9 @@ class ASRConfig(I18nMixin):
     )
     sherpa_onnx_asr: Optional[SherpaOnnxASRConfig] = Field(
         None, alias="sherpa_onnx_asr"
+    )
+    gigaam_onnx_asr: Optional[GigaAMOnnxASRConfig] = Field(
+        None, alias="gigaam_onnx_asr"
     )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
@@ -349,6 +382,10 @@ class ASRConfig(I18nMixin):
         ),
         "sherpa_onnx_asr": Description(
             en="Configuration for Sherpa Onnx ASR", zh="Sherpa Onnx ASR 配置"
+        ),
+        "gigaam_onnx_asr": Description(
+            en="Configuration for GigaAM ONNX ASR (Russian)",
+            zh="GigaAM ONNX ASR 配置（俄语）",
         ),
     }
 
@@ -371,5 +408,7 @@ class ASRConfig(I18nMixin):
             values.groq_whisper_asr.model_validate(values.groq_whisper_asr.model_dump())
         elif asr_model == "SherpaOnnxASR" and values.sherpa_onnx_asr is not None:
             values.sherpa_onnx_asr.model_validate(values.sherpa_onnx_asr.model_dump())
+        elif asr_model == "gigaam_onnx_asr" and values.gigaam_onnx_asr is not None:
+            values.gigaam_onnx_asr.model_validate(values.gigaam_onnx_asr.model_dump())
 
         return values

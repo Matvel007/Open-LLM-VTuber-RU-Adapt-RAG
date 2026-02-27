@@ -8,6 +8,8 @@ dependencies = [
     "anthropic>=0.40.0",
     "azure-cognitiveservices-speech>=1.41.1",
     "chardet>=5.2.0",
+    "chromadb>=0.5.0",
+    "sentence-transformers>=2.2.0",
     "cartesia>=2.0.0", 
     "edge-tts>=7.0.0",
     "elevenlabs>=1.0.0",
@@ -18,6 +20,8 @@ dependencies = [
     "loguru>=0.7.2",
     "mcp[cli]>=1.6.0",
     "numpy>=1.26.4,<2",
+    "onnx-asr[cpu,hub]>=0.7.0",
+    "omegaconf>=2.0.0",
     "onnxruntime>=1.20.1",
     "openai>=1.57.4",
     "pre-commit>=4.1.0",
@@ -65,4 +69,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 # Ignore E402 (module level import not at top of file) for the run_bilibili_live.py script
-per-file-ignores = { "scripts/run_bilibili_live.py" = ["E402"] }
+per-file-ignores = {
+    "scripts/run_bilibili_live.py" = ["E402"],
+    "scripts/ingest_rag_documents.py" = ["E402"],
+}

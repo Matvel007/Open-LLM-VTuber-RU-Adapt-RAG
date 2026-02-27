@@ -211,6 +211,18 @@ class TTSFactory:
                 normalize_audio=kwargs.get("normalize_audio"),
                 use_cuda=kwargs.get("use_cuda"),
             )
+        elif engine_type == "silero_tts":
+            from .silero_tts import TTSEngine as SileroTTSEngine
+
+            return SileroTTSEngine(
+                language=kwargs.get("language", "ru"),
+                model_id=kwargs.get("model_id", "v5_1_ru"),
+                speaker=kwargs.get("speaker", "xenia"),
+                sample_rate=kwargs.get("sample_rate", 48000),
+                device=kwargs.get("device", "cpu"),
+                put_accent=kwargs.get("put_accent", True),
+                put_yo=kwargs.get("put_yo", True),
+            )
         else:
             raise ValueError(f"Unknown TTS engine type: {engine_type}")
 

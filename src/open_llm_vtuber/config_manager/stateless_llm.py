@@ -174,6 +174,18 @@ class DeepseekConfig(OpenAICompatibleConfig):
     base_url: str = Field("https://api.deepseek.com/v1", alias="base_url")
 
 
+class AitunelConfig(OpenAICompatibleConfig):
+    """Configuration for AITUNEL API (GPT 4.1 Nano etc)."""
+
+    base_url: str = Field("https://api.aitunnel.ru/v1/", alias="base_url")
+
+
+class RouteraiConfig(OpenAICompatibleConfig):
+    """Configuration for RouterAI API (MoonshotAI Kimi K2 etc)."""
+
+    base_url: str = Field("https://routerai.ru/api/v1", alias="base_url")
+
+
 class GroqConfig(OpenAICompatibleConfig):
     """Configuration for Groq API."""
 
@@ -245,6 +257,8 @@ class StatelessLLMConfigs(I18nMixin, BaseModel):
     gemini_llm: GeminiConfig | None = Field(None, alias="gemini_llm")
     zhipu_llm: ZhipuConfig | None = Field(None, alias="zhipu_llm")
     deepseek_llm: DeepseekConfig | None = Field(None, alias="deepseek_llm")
+    aitunel_llm: AitunelConfig | None = Field(None, alias="aitunel_llm")
+    routerai_llm: RouteraiConfig | None = Field(None, alias="routerai_llm")
     groq_llm: GroqConfig | None = Field(None, alias="groq_llm")
     claude_llm: ClaudeConfig | None = Field(None, alias="claude_llm")
     llama_cpp_llm: LlamaCppConfig | None = Field(None, alias="llama_cpp_llm")
@@ -274,6 +288,12 @@ class StatelessLLMConfigs(I18nMixin, BaseModel):
         "zhipu_llm": Description(en="Configuration for Zhipu API", zh="Zhipu API 配置"),
         "deepseek_llm": Description(
             en="Configuration for Deepseek API", zh="Deepseek API 配置"
+        ),
+        "aitunel_llm": Description(
+            en="Configuration for AITUNEL API (GPT 4.1 Nano)", zh="AITUNEL API 配置"
+        ),
+        "routerai_llm": Description(
+            en="Configuration for RouterAI API (MoonshotAI Kimi K2)", zh="RouterAI API 配置"
         ),
         "groq_llm": Description(en="Configuration for Groq API", zh="Groq API 配置"),
         "claude_llm": Description(

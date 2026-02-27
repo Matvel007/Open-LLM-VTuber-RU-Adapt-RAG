@@ -58,5 +58,9 @@ class ASRFactory:
             from .sherpa_onnx_asr import VoiceRecognition as SherpaOnnxASR
 
             return SherpaOnnxASR(**kwargs)
+        elif system_name == "gigaam_onnx_asr":
+            from .gigaam_onnx_asr import VoiceRecognition as GigaAMOnnxASR
+
+            return GigaAMOnnxASR(**kwargs)
         else:
             raise ValueError(f"Unknown ASR system: {system_name}")

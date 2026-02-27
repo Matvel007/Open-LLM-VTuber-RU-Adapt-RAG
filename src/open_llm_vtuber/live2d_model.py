@@ -1,4 +1,5 @@
 import json
+import re
 import chardet
 from loguru import logger
 
@@ -50,7 +51,7 @@ class Live2dModel:
         }
         self.emo_str: str = " ".join([f"[{key}]," for key in self.emo_map.keys()])
         # emo_str is a string of the keys in the emoMap dictionary. The keys are enclosed in square brackets.
-        # example: `"[fear], [anger], [disgust], [sadness], [joy], [neutral], [surprise]"`
+        # example: `"[fear], [anger], [disgust], [sadness], [surprise]"` (neutral, joy, smirk excluded)
 
     def _load_file_content(self, file_path: str) -> str:
         """Load the content of a file with robust encoding handling."""
@@ -155,16 +156,16 @@ class Live2dModel:
         """
 
         expression_list = []
-        str_to_check = str_to_check.lower()
+        str_to_check_lower = str_to_check.lower()
 
         i = 0
-        while i < len(str_to_check):
-            if str_to_check[i] != "[":
+        while i < len(str_to_check_lower):
+            if str_to_check_lower[i] != "[":
                 i += 1
                 continue
             for key in self.emo_map.keys():
                 emo_tag = f"[{key}]"
-                if str_to_check[i : i + len(emo_tag)] == emo_tag:
+                if str_to_check_lower[i : i + len(emo_tag)] == emo_tag:
                     expression_list.append(self.emo_map[key])
                     i += len(emo_tag) - 1
                     break
@@ -192,3 +193,23 @@ class Live2dModel:
                 target_str = target_str[:start_index] + target_str[end_index:]
                 lower_str = lower_str[:start_index] + lower_str[end_index:]
         return target_str
+
+    @staticmethod
+    def remove_forbidden_expressions(text: str) -> str:
+        """
+        Remove forbidden expression tags from text (for display/subtitle).
+        Strips [neutral], [joy], [smirk], [confused], [surprise] case-insensitively.
+        """
+        for name in [
+            "neutral",
+            "joy",
+            "smirk",
+            "confused",
+            "surprise",
+            "anger",
+            "sadness",
+            "disgust",
+            "fear",
+        ]:
+            text = re.sub(rf"\[{re.escape(name)}\]", "", text, flags=re.I)
+        return text

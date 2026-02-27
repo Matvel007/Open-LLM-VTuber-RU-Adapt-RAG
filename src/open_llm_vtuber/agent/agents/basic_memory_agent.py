@@ -125,6 +125,34 @@ class BasicMemoryAgent(AgentInterface):
 
         self._system = system
 
+    async def run_background_prompt(
+        self, messages: List[Dict[str, Any]], system: str
+    ) -> str:
+        """
+        Run LLM with given messages and system, return full non-streamed response.
+
+        Used for background tasks (fact extraction, summarization) without blocking
+        the main conversation flow.
+
+        Args:
+            messages: Chat messages (e.g. [{"role": "user", "content": "..."}]).
+            system: System prompt for this completion.
+
+        Returns:
+            Full concatenated response text.
+        """
+        full = ""
+        try:
+            stream = self._llm.chat_completion(messages, system, tools=None)
+            async for chunk in stream:
+                if isinstance(chunk, str):
+                    full += chunk
+                elif isinstance(chunk, dict) and chunk.get("type") == "text_delta":
+                    full += chunk.get("text", "")
+        except Exception as e:
+            logger.warning(f"Background LLM prompt failed: {e}")
+        return full.strip()
+
     def _add_message(
         self,
         message: Union[str, List[Dict[str, Any]]],
@@ -172,6 +200,11 @@ class BasicMemoryAgent(AgentInterface):
             return
 
         self._memory.append(message_data)
+
+    def clear_memory(self) -> None:
+        """Clear agent memory. Use when resuming without loading old dialogue."""
+        self._memory = []
+        logger.debug("Agent memory cleared.")
 
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
         """Load memory from chat history."""
@@ -225,6 +258,27 @@ class BasicMemoryAgent(AgentInterface):
     def _to_text_prompt(self, input_data: BatchInput) -> str:
         """Format input data to text prompt."""
         message_parts = []
+
+        # RAG context from metadata (injected by conversation flow)
+        if input_data.metadata and (
+            rag_context := input_data.metadata.get("rag_context")
+        ):
+            if isinstance(rag_context, list) and rag_context:
+                context_text = "\n".join(f"- {chunk}" for chunk in rag_context)
+                message_parts.append(
+                    f"[Relevant knowledge base context:\n{context_text}]\n\n"
+                )
+
+        # Dialogue memory: user profile and facts (IMPORTANT - use in response)
+        if input_data.metadata and (
+            memory_context := input_data.metadata.get("memory_context")
+        ):
+            if isinstance(memory_context, list) and memory_context:
+                mem_text = "\n\n".join(memory_context)
+                message_parts.append(
+                    f"[ВАЖНО — используй эту информацию в ответе, не игнорируй]\n"
+                    f"{mem_text}\n\n[Теперь ответь на запрос пользователя]\n"
+                )
 
         for text_data in input_data.texts:
             if text_data.source == TextSource.INPUT:

@@ -28,6 +28,8 @@ class LLMFactory:
             or llm_provider == "gemini_llm"
             or llm_provider == "zhipu_llm"
             or llm_provider == "deepseek_llm"
+            or llm_provider == "aitunel_llm"
+            or llm_provider == "routerai_llm"
             or llm_provider == "groq_llm"
             or llm_provider == "mistral_llm"
             or llm_provider == "lmstudio_llm"

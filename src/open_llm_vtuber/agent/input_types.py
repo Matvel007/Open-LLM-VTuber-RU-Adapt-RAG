@@ -86,6 +86,7 @@ class BatchInput(BaseInput):
             - 'proactive_speak': Boolean flag indicating if this is a proactive speak input
             - 'skip_memory': Boolean flag indicating if this input should be skipped in AI's internal memory
             - 'skip_history': Boolean flag indicating if this input should be skipped in local history storage
+            - 'rag_context': List of retrieved document chunks from RAG to prepend to user message
     """
 
     texts: List[TextData]

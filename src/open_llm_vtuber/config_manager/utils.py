@@ -171,6 +171,111 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
     return config_files
 
 
+LAST_CHARACTER_PATH = "cache/last_character.txt"
+
+
+def persist_last_character(config_file_name: str) -> None:
+    """
+    Save the selected character config file name for next startup.
+
+    Args:
+        config_file_name: e.g. 'conf.yaml', 'ru_mei.yaml'
+    """
+    try:
+        Path("cache").mkdir(parents=True, exist_ok=True)
+        Path(LAST_CHARACTER_PATH).write_text(config_file_name.strip(), encoding="utf-8")
+        logger.debug(f"Persisted last character: {config_file_name}")
+    except Exception as e:
+        logger.warning(f"Failed to persist last character: {e}")
+
+
+def persist_live2d_model_to_character(
+    live2d_model_name: str,
+    config_file_name: str | None = None,
+    config_alts_dir: str = "characters",
+) -> bool:
+    """
+    Update live2d_model_name in the active character config file.
+
+    Args:
+        live2d_model_name: The new Live2D model name.
+        config_file_name: e.g. 'conf.yaml' or 'ru_mei.yaml'. If None, uses
+            load_last_character() (falls back to conf.yaml).
+        config_alts_dir: Directory for character configs.
+
+    Returns:
+        True if persisted successfully.
+    """
+    try:
+        target = config_file_name or load_last_character() or "conf.yaml"
+        if target == "conf.yaml":
+            file_path = Path("conf.yaml")
+        else:
+            file_path = Path(config_alts_dir) / target
+        if not file_path.exists():
+            logger.warning(f"Config file not found: {file_path}")
+            return False
+        data = read_yaml(str(file_path))
+        if "character_config" not in data:
+            data["character_config"] = {}
+        data["character_config"]["live2d_model_name"] = live2d_model_name
+        with open(file_path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+        logger.info(f"Persisted live2d_model_name={live2d_model_name} to {file_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to persist live2d_model_name: {e}")
+        return False
+
+
+def load_last_character() -> str | None:
+    """Load the last selected character config file name, or None."""
+    try:
+        path = Path(LAST_CHARACTER_PATH)
+        if path.exists():
+            return path.read_text(encoding="utf-8").strip() or None
+    except Exception as e:
+        logger.warning(f"Failed to load last character: {e}")
+    return None
+
+
+def _deep_merge(dict1: dict, dict2: dict) -> dict:
+    """Recursively merge dict2 into dict1, prioritizing values from dict2."""
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def load_config_with_last_character() -> dict:
+    """
+    Load conf.yaml and optionally merge with last selected character.
+
+    Returns:
+        Merged config dict ready for validate_config.
+    """
+    config_data = read_yaml("conf.yaml")
+    last = load_last_character()
+    if last and last != "conf.yaml":
+        try:
+            chars_dir = config_data.get("system_config", {}).get(
+                "config_alts_dir", "characters"
+            )
+            file_path = Path(chars_dir) / last
+            if file_path.exists() and file_path.suffix.lower() == ".yaml":
+                alt = read_yaml(str(file_path)).get("character_config")
+                if alt:
+                    base_char = config_data.get("character_config", {})
+                    config_data["character_config"] = _deep_merge(base_char, alt)
+                    logger.info(f"Loaded last character: {last}")
+        except Exception as e:
+            logger.warning(f"Failed to load last character {last}: {e}")
+    return config_data
+
+
 def scan_bg_directory() -> list[str]:
     bg_files = []
     bg_dir = "backgrounds"

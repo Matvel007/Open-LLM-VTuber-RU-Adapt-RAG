@@ -1,3 +1,4 @@
+import re
 from typing import AsyncIterator, Tuple, Callable, List, Union, Dict, Any
 from functools import wraps
 from .output_types import Actions, SentenceOutput, DisplayText
@@ -131,6 +132,19 @@ def display_processor():
                 ):
                     sentence, actions = item
                     text = sentence.text
+                    # Strip forbidden expression tags from display (case-insensitive)
+                    for name in [
+                        "neutral",
+                        "joy",
+                        "smirk",
+                        "confused",
+                        "surprise",
+                        "anger",
+                        "sadness",
+                        "disgust",
+                        "fear",
+                    ]:
+                        text = re.sub(rf"\[{re.escape(name)}\]", "", text, flags=re.I)
                     # Handle think tag states
                     for tag in sentence.tags:
                         if tag.name == "think":

@@ -142,6 +142,7 @@ class WebSocketServer:
         )
 
         # Mount main frontend last (as catch-all)
+        # start.bat copies frontend/dist/web to frontend/ before start
         self.app.mount(
             "/",
             CORSStaticFiles(directory="frontend", html=True),
@@ -155,8 +156,25 @@ class WebSocketServer:
 
     @staticmethod
     def clean_cache():
-        """Clean the cache directory by removing and recreating it."""
+        """Clean the cache directory by removing and recreating it.
+        Skips rag_chroma (RAG vector store) to avoid PermissionError from open DB."""
         cache_dir = "cache"
-        if os.path.exists(cache_dir):
-            shutil.rmtree(cache_dir)
-            os.makedirs(cache_dir)
+        if not os.path.exists(cache_dir):
+            return
+        try:
+            for item in os.listdir(cache_dir):
+                path = os.path.join(cache_dir, item)
+                if item == "rag_chroma":
+                    continue
+                if os.path.isfile(path):
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
+                elif os.path.isdir(path):
+                    try:
+                        shutil.rmtree(path)
+                    except OSError:
+                        pass
+        except OSError:
+            pass

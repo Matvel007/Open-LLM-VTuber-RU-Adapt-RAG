@@ -7,6 +7,7 @@ import numpy as np
 from .conversation_utils import (
     create_batch_input,
     process_agent_output,
+    safe_websocket_send,
     send_conversation_start_signals,
     process_user_input,
     finalize_conversation_turn,
@@ -15,8 +16,9 @@ from .conversation_utils import (
 )
 from .types import WebSocketSend
 from .tts_manager import TTSTaskManager
-from ..chat_history_manager import store_message
+from ..chat_history_manager import store_message, get_history
 from ..service_context import ServiceContext
+from ..rag.memory_processor import process_memory_background
 
 # Import necessary types from agent outputs
 from ..agent.output_types import SentenceOutput, AudioOutput
@@ -54,17 +56,101 @@ async def process_single_conversation(
         await send_conversation_start_signals(websocket_send)
         logger.info(f"New Conversation Chain {session_emoji} started!")
 
+        # Cleanup old dialogue memory (async, non-blocking)
+        if (
+            context.dialogue_memory
+            and context.system_config
+            and context.system_config.rag_config
+        ):
+            try:
+                days = getattr(
+                    context.system_config.rag_config,
+                    "memory_cleanup_days",
+                    30,
+                )
+                asyncio.create_task(
+                    asyncio.to_thread(
+                        context.dialogue_memory.delete_older_than_days,
+                        days=days,
+                    )
+                )
+            except Exception:
+                pass
+
         # Process user input
         input_text = await process_user_input(
             user_input, context.asr_engine, websocket_send
         )
+
+        # RAG: retrieve relevant context if enabled
+        rag_context: list[str] = []
+        if context.rag_engine and input_text.strip():
+            try:
+                rag_config = (
+                    context.system_config.rag_config
+                    if context.system_config and context.system_config.rag_config
+                    else None
+                )
+                n_results = rag_config.n_results if rag_config else 5
+                rag_context = context.rag_engine.query(
+                    input_text.strip(), n_results=n_results
+                )
+                if rag_context:
+                    logger.debug(f"RAG retrieved {len(rag_context)} chunks")
+            except Exception as e:
+                logger.warning(f"RAG query failed: {e}")
+
+        # Dialogue memory: user profile + similar past messages
+        memory_context: list[str] = []
+        if context.dialogue_memory and context.history_uid and input_text.strip():
+            try:
+                rag_config = (
+                    context.system_config.rag_config
+                    if context.system_config and context.system_config.rag_config
+                    else None
+                )
+                mem_n = getattr(rag_config, "memory_n_results", 5) if rag_config else 5
+                profile = context.dialogue_memory.get_user_profile(
+                    context.history_uid, context.character_config.conf_uid
+                )
+                if profile:
+                    memory_context.append(
+                        f"Профиль пользователя (ОБЯЗАТЕЛЬНО используй при ответе):\n{profile}"
+                    )
+                similar = context.dialogue_memory.query(
+                    input_text.strip(),
+                    n_results=mem_n,
+                    history_uid=context.history_uid,
+                    conf_uid=context.character_config.conf_uid,
+                    roles=["fact", "summary"],
+                )
+                if similar:
+                    lines = []
+                    for content, _, meta in similar:
+                        role = meta.get("role", "")
+                        if role == "fact":
+                            lines.append(f"Факт: {content}")
+                        elif role == "summary":
+                            lines.append(f"Резюме: {content}")
+                        else:
+                            lines.append(content)
+                    memory_context.append("Из памяти ИИ:\n" + "\n".join(lines))
+            except Exception as e:
+                logger.warning(f"Dialogue memory query failed: {e}")
+
+        # Merge metadata with RAG and memory context
+        batch_metadata = dict(metadata) if metadata else {}
+        if rag_context:
+            batch_metadata["rag_context"] = rag_context
+        if memory_context:
+            batch_metadata["memory_context"] = memory_context
 
         # Create batch input
         batch_input = create_batch_input(
             input_text=input_text,
             images=images,
             from_name=context.character_config.human_name,
-            metadata=metadata,
+            metadata=batch_metadata if batch_metadata else None,
         )
 
         # Store user message (check if we should skip storing to history)
@@ -77,6 +163,7 @@ async def process_single_conversation(
                 content=input_text,
                 name=context.character_config.human_name,
             )
+            # Do NOT save raw messages to ChromaDB — AI decides via extraction
 
         if skip_history:
             logger.debug("Skipping storing user input to history (proactive speak)")
@@ -126,13 +213,14 @@ async def process_single_conversation(
             logger.exception(
                 f"Error processing agent response stream: {e}"
             )  # Log with stack trace
-            await websocket_send(
+            await safe_websocket_send(
+                websocket_send,
                 json.dumps(
                     {
                         "type": "error",
                         "message": f"Error processing agent response: {str(e)}",
                     }
-                )
+                ),
             )
             # full_response will contain partial response before error
         # --- End processing agent response ---
@@ -140,7 +228,9 @@ async def process_single_conversation(
         # Wait for any pending TTS tasks
         if tts_manager.task_list:
             await asyncio.gather(*tts_manager.task_list)
-            await websocket_send(json.dumps({"type": "backend-synth-complete"}))
+            await safe_websocket_send(
+                websocket_send, json.dumps({"type": "backend-synth-complete"})
+            )
 
         await finalize_conversation_turn(
             tts_manager=tts_manager,
@@ -157,7 +247,34 @@ async def process_single_conversation(
                 name=context.character_config.character_name,
                 avatar=context.character_config.avatar,
             )
+            # Do NOT save raw AI response to ChromaDB — AI extracts facts/summaries
             logger.info(f"AI response: {full_response}")
+
+            # Schedule async background memory processing (extract facts, summarize)
+            # Runs only when idle, does not block responses
+            if context.dialogue_memory and context.history_uid:
+                run_bg = getattr(context.agent_engine, "run_background_prompt", None)
+                if callable(run_bg):
+
+                    async def _bg_memory_task() -> None:
+                        try:
+                            msg_count = len(
+                                get_history(
+                                    context.character_config.conf_uid,
+                                    context.history_uid,
+                                )
+                            )
+                            await process_memory_background(
+                                conf_uid=context.character_config.conf_uid,
+                                history_uid=context.history_uid,
+                                dialogue_memory=context.dialogue_memory,
+                                llm_prompt_fn=run_bg,
+                                message_count=msg_count,
+                            )
+                        except Exception as e:
+                            logger.warning(f"Background memory task failed: {e}")
+
+                    asyncio.create_task(_bg_memory_task())
 
         return full_response  # Return accumulated full_response
 
@@ -166,8 +283,9 @@ async def process_single_conversation(
         raise
     except Exception as e:
         logger.error(f"Error in conversation chain: {e}")
-        await websocket_send(
-            json.dumps({"type": "error", "message": f"Conversation error: {str(e)}"})
+        await safe_websocket_send(
+            websocket_send,
+            json.dumps({"type": "error", "message": f"Conversation error: {str(e)}"}),
         )
         raise
     finally:

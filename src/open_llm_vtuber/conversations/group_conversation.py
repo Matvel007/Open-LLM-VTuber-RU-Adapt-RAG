@@ -246,11 +246,31 @@ async def handle_group_member_turn(
     new_messages = state.conversation_history[state.memory_index[current_member_uid] :]
     new_context = "\n".join(new_messages) if new_messages else ""
 
+    # RAG: retrieve relevant context if enabled
+    rag_context: list[str] = []
+    if context.rag_engine and new_context.strip():
+        try:
+            rag_config = (
+                context.system_config.rag_config
+                if context.system_config and context.system_config.rag_config
+                else None
+            )
+            n_results = rag_config.n_results if rag_config else 5
+            rag_context = context.rag_engine.query(
+                new_context.strip(), n_results=n_results
+            )
+        except Exception as e:
+            logger.warning(f"RAG query failed: {e}")
+
+    batch_metadata = dict(metadata) if metadata else {}
+    if rag_context:
+        batch_metadata["rag_context"] = rag_context
+
     batch_input = create_batch_input(
         input_text=new_context,
         images=images,
         from_name="Human",
-        metadata=metadata,
+        metadata=batch_metadata if batch_metadata else None,
     )
 
     logger.info(

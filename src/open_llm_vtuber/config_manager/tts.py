@@ -585,6 +585,49 @@ class PiperTTSConfig(I18nMixin):
     }
 
 
+class SileroTTSConfig(I18nMixin):
+    """Configuration for Silero TTS (local Russian TTS)."""
+
+    language: str = Field("ru", alias="language")
+    model_id: str = Field("v5_1_ru", alias="model_id")
+    speaker: str = Field("xenia", alias="speaker")
+    sample_rate: int = Field(48000, alias="sample_rate")
+    device: str = Field("cpu", alias="device")
+    put_accent: bool = Field(True, alias="put_accent")
+    put_yo: bool = Field(True, alias="put_yo")
+
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "language": Description(
+            en="Language code (e.g., ru for Russian)",
+            zh="语言代码（如 ru 表示俄语）",
+        ),
+        "model_id": Description(
+            en="Silero model ID (v5_1_ru, v5_ru, v4_ru, etc.)",
+            zh="Silero 模型 ID（v5_1_ru、v5_ru、v4_ru 等）",
+        ),
+        "speaker": Description(
+            en="Speaker/voice name (e.g., xenia, baya)",
+            zh="说话人/嗓音名称（如 xenia、baya）",
+        ),
+        "sample_rate": Description(
+            en="Output sample rate (8000, 24000, or 48000)",
+            zh="输出采样率（8000、24000 或 48000）",
+        ),
+        "device": Description(
+            en="Device for inference (cpu or cuda)",
+            zh="推理设备（cpu 或 cuda）",
+        ),
+        "put_accent": Description(
+            en="Add Russian stress marks automatically",
+            zh="自动添加俄语重音符号",
+        ),
+        "put_yo": Description(
+            en="Use letter ё where appropriate",
+            zh="在适当位置使用字母 ё",
+        ),
+    }
+
+
 class ElevenLabsTTSConfig(I18nMixin):
     """Configuration for ElevenLabs TTS."""
 
@@ -696,12 +739,13 @@ class TTSConfig(I18nMixin):
         "fish_api_tts",
         "sherpa_onnx_tts",
         "siliconflow_tts",
-        "openai_tts",  # Add openai_tts here
+        "openai_tts",
         "spark_tts",
         "minimax_tts",
         "elevenlabs_tts",
         "cartesia_tts",
         "piper_tts",
+        "silero_tts",
     ] = Field(..., alias="tts_model")
 
     azure_tts: Optional[AzureTTSConfig] = Field(None, alias="azure_tts")
@@ -726,6 +770,7 @@ class TTSConfig(I18nMixin):
     elevenlabs_tts: ElevenLabsTTSConfig | None = Field(None, alias="elevenlabs_tts")
     cartesia_tts: CartesiaTTSConfig | None = Field(None, alias="cartesia_tts")
     piper_tts: Optional[PiperTTSConfig] = Field(None, alias="piper_tts")
+    silero_tts: Optional[SileroTTSConfig] = Field(None, alias="silero_tts")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "tts_model": Description(
@@ -769,6 +814,10 @@ class TTSConfig(I18nMixin):
             en="Configuration for Cartesia TTS", zh="Cartesia TTS 配置"
         ),
         "piper_tts": Description(en="Configuration for Piper TTS", zh="Piper TTS 配置"),
+        "silero_tts": Description(
+            en="Configuration for Silero TTS (local Russian)",
+            zh="Silero TTS 配置（本地俄语）",
+        ),
     }
 
     @model_validator(mode="after")
@@ -813,4 +862,6 @@ class TTSConfig(I18nMixin):
 
         elif tts_model == "piper_tts" and values.piper_tts is not None:
             values.piper_tts.model_validate(values.piper_tts.model_dump())
+        elif tts_model == "silero_tts" and values.silero_tts is not None:
+            values.silero_tts.model_validate(values.silero_tts.model_dump())
         return values

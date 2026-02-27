@@ -1,78 +1,89 @@
-# ignore the user configuration file
-conf.yaml
+# User config backup (conf.yaml is tracked)
+conf.yaml.backup
 
-# ignore non-default background images
+# Non-default assets (keep structure READMEs)
 /backgrounds/*
 !/backgrounds/README.md
-
-# ignore non-default live2d models
 /live2d-models/*
 !/live2d-models/mao_pro
 !/live2d-models/shizuku
-
-# ignore non-default character configs
 /characters/*
 !/characters/README.md
-# but all of the defaults are already tracked, so no need to un-ignore them
-
-# ignore avatars
 avatars/*
 
-# macOS system files
-.DS_Store
-
-# Python files
+# Python
 __pycache__/
 *.pyc
-lab.py
-.idea
-
-# Virtual environment
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+*.egg
+dist/
+build/
+venv/
 .venv
 .conda
-conda
+conda/
+lab.py
 
-# Sensitive data
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Sensitive
 .env
+.env.*
 api_keys.py
 src/open_llm_vtuber/llm/user_credentials.json
 
-# Database files
+# Database & RAG
 memory.db
 memory.db.bk
+cache/
+chat_history/
+knowledge_base/
+openapi_assistants.json
+openapi_memgpt.json
+mcp_servers.json
+mem.json
 
-# Logs
-server.log
-logs/*
-
-# Cache and models
-cache/*
+# Models & cache
+models/*
+!models/piper_voice
+models/piper_voice/*
+asset
 src/open_llm_vtuber/tts/asset
 src/open_llm_vtuber/tts/config
 src/open_llm_vtuber/asr/models*
 !src/open_llm_vtuber/asr/models/silero_vad.onnx
-asset
-models/*
-!models/piper_voice
-models/piper_voice/*
 
+# Logs
+server.log
+*.log
+logs/
 
-# Legacy and specific directories
-legacy/
-chat_history/
-knowledge_base/
-submodules/MeloTTS
-openapi_assistants.json
-openapi_memgpt.json
-
-# memory log
-mem.json
-conf.yaml.backup
-
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/release/
+frontend/build/
+frontend/.vite/
+frontend/.cache/
 *.exe
 
+# Temp
 tmp/
+temp/
 private/
-mcp_servers.json
+legacy/
+submodules/MeloTTS
 
-.vscode/
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini

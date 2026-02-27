@@ -7,6 +7,7 @@ and utility functions for loading/saving configurations.
 
 # Import main configuration classes
 from .main import Config
+from .rag import RAGConfig
 from .system import SystemConfig
 from .character import CharacterConfig
 from .live import LiveConfig, BiliBiliLiveConfig
@@ -67,6 +68,7 @@ from .utils import (
 __all__ = [
     # Main configuration classes
     "Config",
+    "RAGConfig",
     "SystemConfig",
     "CharacterConfig",
     "LiveConfig",

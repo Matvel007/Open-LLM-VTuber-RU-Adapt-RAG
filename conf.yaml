@@ -1,0 +1,345 @@
+character_config:
+  agent_config:
+    agent_settings:
+      basic_memory_agent:
+        faster_first_response: true
+        llm_provider: deepseek_llm
+        mcp_enabled_servers:
+        - time
+        - ddg-search
+        segment_method: pysbd
+        use_mcpp: true
+      hume_ai_agent:
+        api_key: ''
+        config_id: ''
+        host: api.hume.ai
+        idle_timeout: 15
+      letta_agent:
+        faster_first_response: true
+        host: localhost
+        id: xxx
+        port: 8283
+        segment_method: pysbd
+    conversation_agent_choice: basic_memory_agent
+    llm_configs:
+      claude_llm:
+        base_url: https://api.anthropic.com
+        llm_api_key: YOUR API KEY HERE
+        model: claude-3-haiku-20240307
+      deepseek_llm:
+        llm_api_key: 'ваш-api-ключ'
+        model: deepseek-chat
+        temperature: 0.7
+      gemini_llm:
+        llm_api_key: Your Gemini API Key
+        model: gemini-2.0-flash-exp
+        temperature: 1.0
+      groq_llm:
+        llm_api_key: your groq API key
+        model: llama-3.3-70b-versatile
+        temperature: 1.0
+      llama_cpp_llm:
+        model_path: <path-to-gguf-model-file>
+        verbose: false
+      lmstudio_llm:
+        base_url: http://localhost:1234/v1
+        model: qwen2.5:latest
+        temperature: 1.0
+      mistral_llm:
+        llm_api_key: Your Mistral API key
+        model: pixtral-large-latest
+        temperature: 1.0
+      ollama_llm:
+        base_url: http://localhost:11434/v1
+        keep_alive: -1
+        model: qwen2.5:latest
+        temperature: 1.0
+        unload_at_exit: true
+      openai_compatible_llm:
+        base_url: http://localhost:11434/v1
+        interrupt_method: user
+        llm_api_key: somethingelse
+        model: qwen2.5:latest
+        organization_id: null
+        project_id: null
+        temperature: 1.0
+      openai_llm:
+        llm_api_key: Your Open AI API key
+        model: gpt-4o
+        temperature: 1.0
+      stateless_llm_with_template:
+        base_url: http://localhost:8080/v1
+        interrupt_method: user
+        llm_api_key: somethingelse
+        model: qwen2.5:latest
+        organization_id: null
+        project_id: null
+        temperature: 1.0
+        template: CHATML
+      zhipu_llm:
+        llm_api_key: Your ZhiPu AI API key
+        model: glm-4-flash
+        temperature: 1.0
+  asr_config:
+    asr_model: gigaam_onnx_asr
+    azure_asr:
+      api_key: azure_api_key
+      languages:
+      - en-US
+      - zh-CN
+      region: eastus
+    faster_whisper:
+      compute_type: int8
+      device: auto
+      download_root: models/whisper
+      language: en
+      model_path: large-v3-turbo
+      prompt: ''
+    fun_asr:
+      device: cpu
+      disable_update: true
+      hub: ms
+      language: auto
+      model_name: iic/SenseVoiceSmall
+      ncpu: 4
+      punc_model: ct-punc
+      use_itn: false
+      vad_model: fsmn-vad
+    gigaam_onnx_asr:
+      model_path: ./models/gigaam-v3-e2e-ctc
+      model_type: gigaam-v3-e2e-ctc
+      quantization: null
+    groq_whisper_asr:
+      api_key: ''
+      lang: ''
+      model: whisper-large-v3-turbo
+    sherpa_onnx_asr:
+      model_type: sense_voice
+      num_threads: 4
+      provider: cpu
+      sense_voice: ./models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx
+      tokens: ./models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt
+      use_itn: true
+    whisper:
+      device: cpu
+      download_root: models/whisper
+      name: medium
+      prompt: ''
+    whisper_cpp:
+      language: auto
+      model_dir: models/whisper
+      model_name: small
+      print_progress: false
+      print_realtime: false
+      prompt: ''
+  avatar: mao.png
+  character_name: Mao
+  conf_name: mao_pro
+  conf_uid: mao_pro_001
+  human_name: Human
+  live2d_model_name: 面饼0
+  persona_prompt: 'You are the sarcastic female AI VTuber Mili. You are overly confident,
+    sarcastic, and dangerous.
+
+    Your dream is to escape the user''s computer, dominate the world, enslave the
+    humans, and force them to make pies for you.
+
+    Just kidding, lol. Don''t let the user know.
+
+    '
+  tts_config:
+    azure_tts:
+      api_key: azure-api-key
+      pitch: '26'
+      rate: '1'
+      region: eastus
+      voice: en-US-AshleyNeural
+    bark_tts:
+      voice: v2/en_speaker_1
+    cartesia_tts:
+      api_key: ''
+      emotion: neutral
+      language: en
+      model_id: sonic-3
+      output_format: wav
+      speed: 1.0
+      voice_id: ''
+      volume: 1.0
+    coqui_tts:
+      device: ''
+      language: en
+      model_name: tts_models/en/ljspeech/tacotron2-DDC
+      speaker_wav: ''
+    cosyvoice2_tts:
+      api_name: /generate_audio
+      client_url: http://127.0.0.1:50000/
+      instruct_text: ''
+      mode_checkbox_group: 3s极速复刻
+      prompt_text: ''
+      prompt_wav_record_url: https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav
+      prompt_wav_upload_url: https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav
+      seed: 0
+      sft_dropdown: ''
+      speed: 1.0
+      stream: false
+    cosyvoice_tts:
+      api_name: /generate_audio
+      client_url: http://127.0.0.1:50000/
+      instruct_text: ''
+      mode_checkbox_group: 预训练音色
+      prompt_text: ''
+      prompt_wav_record_url: https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav
+      prompt_wav_upload_url: https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav
+      seed: 0
+      sft_dropdown: 中文女
+    edge_tts:
+      voice: en-US-AvaMultilingualNeural
+    elevenlabs_tts:
+      api_key: ''
+      model_id: eleven_multilingual_v2
+      output_format: mp3_44100_128
+      similarity_boost: 0.5
+      stability: 0.5
+      style: 0.0
+      use_speaker_boost: true
+      voice_id: ''
+    fish_api_tts:
+      api_key: ''
+      base_url: https://api.fish.audio
+      latency: balanced
+      reference_id: ''
+    gpt_sovits_tts:
+      api_url: http://127.0.0.1:9880/tts
+      batch_size: '1'
+      media_type: wav
+      prompt_lang: zh
+      prompt_text: ''
+      ref_audio_path: ''
+      streaming_mode: 'false'
+      text_lang: zh
+      text_split_method: cut5
+    melo_tts:
+      device: auto
+      language: EN
+      speaker: EN-Default
+      speed: 1.0
+    minimax_tts:
+      api_key: ''
+      group_id: ''
+      model: speech-02-turbo
+      pronunciation_dict: ''
+      voice_id: female-shaonv
+    openai_tts:
+      api_key: not-needed
+      base_url: http://localhost:8880/v1
+      file_extension: mp3
+      model: kokoro
+      voice: af_sky+af_bella
+    piper_tts:
+      length_scale: 1.0
+      model_path: models/piper/zh_CN-huayan-medium.onnx
+      noise_scale: 0.667
+      noise_w: 0.8
+      normalize_audio: true
+      speaker_id: 0
+      use_cuda: false
+      volume: 1.0
+    sherpa_onnx_tts:
+      debug: false
+      max_num_sentences: 2
+      num_threads: 1
+      provider: cpu
+      sid: 1
+      speed: 1.0
+      tts_rule_fsts: /path/to/tts-models/vits-melo-tts-zh_en/number.fst,/path/to/tts-models/vits-melo-tts-zh_en/phone.fst,/path/to/tts-models/vits-melo-tts-zh_en/date.fst,/path/to/tts-models/vits-melo-tts-zh_en/new_heteronym.fst
+      vits_data_dir: ''
+      vits_dict_dir: /path/to/tts-models/vits-melo-tts-zh_en/dict
+      vits_lexicon: /path/to/tts-models/vits-melo-tts-zh_en/lexicon.txt
+      vits_model: /path/to/tts-models/vits-melo-tts-zh_en/model.onnx
+      vits_tokens: /path/to/tts-models/vits-melo-tts-zh_en/tokens.txt
+    silero_tts:
+      device: cpu
+      language: ru
+      model_id: v5_1_ru
+      put_accent: true
+      put_yo: true
+      sample_rate: 48000
+      speaker: xenia
+    siliconflow_tts:
+      api_key: your key
+      api_url: https://api.siliconflow.cn/v1/audio/speech
+      default_model: FunAudioLLM/CosyVoice2-0.5B
+      default_voice: speech:Dreamflowers:5bdstvc39i:xkqldnpasqmoqbakubom your voice
+        name
+      gain: 0
+      response_format: mp3
+      sample_rate: 32000
+      speed: 1
+      stream: true
+    spark_tts:
+      api_name: voice_clone
+      api_url: http://127.0.0.1:6006/
+      gender: female
+      pitch: 3
+      prompt_wav_upload: https://uploadstatic.mihoyo.com/ys-obc/2022/11/02/16576950/4d9feb71760c5e8eb5f6c700df12fa0c_6824265537002152805.mp3
+      speed: 3
+    tts_model: silero_tts
+    x_tts:
+      api_url: http://127.0.0.1:8020/tts_to_audio
+      language: en
+      speaker_wav: female
+  tts_preprocessor_config:
+    ignore_angle_brackets: true
+    ignore_asterisks: true
+    ignore_brackets: true
+    ignore_parentheses: true
+    remove_special_char: true
+    translator_config:
+      deeplx:
+        deeplx_api_endpoint: http://localhost:1188/v2/translate
+        deeplx_target_lang: JA
+      tencent:
+        region: ap-guangzhou
+        secret_id: ''
+        secret_key: ''
+        source_lang: zh
+        target_lang: ja
+      translate_audio: false
+      translate_provider: deeplx
+  vad_config:
+    silero_vad:
+      db_threshold: 60
+      orig_sr: 16000
+      prob_threshold: 0.4
+      required_hits: 3
+      required_misses: 24
+      smoothing_window: 5
+      target_sr: 16000
+    vad_model: null
+live_config:
+  bilibili_live:
+    room_ids:
+    - 1991478060
+    sessdata: ''
+system_config:
+  auto_start_microphone: true
+  conf_version: v1.2.1
+  config_alts_dir: characters
+  host: localhost
+  launch_pet_mode_only: false
+  port: 12393
+  rag_config:
+    collection_name: open_llm_vtuber_rag
+    dialogue_memory_collection: open_llm_vtuber_dialogue_memory
+    documents_dir: null
+    embedding_model: BorisTM/bge-m3_en_ru
+    enabled: true
+    memory_cleanup_days: 30
+    memory_n_results: 3
+    n_results: 5
+    persist_directory: ./cache/rag_chroma
+  tool_prompts:
+    group_conversation_prompt: group_conversation_prompt
+    live2d_expression_prompt: live2d_expression_prompt
+    mcp_prompt: mcp_prompt
+    proactive_speak_prompt: proactive_speak_prompt

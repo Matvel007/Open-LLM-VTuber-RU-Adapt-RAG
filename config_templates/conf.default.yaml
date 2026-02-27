@@ -23,7 +23,22 @@ system_config:
     # Prompt to enhance the LLM's ability to output speakable text
     # speakable_prompt: 'speakable_prompt'
     # Additional guidance for LLM on how to use tools
-    # tool_guidance_prompt: 'tool_guidance_prompt' 
+    # tool_guidance_prompt: 'tool_guidance_prompt'
+  # Auto-start microphone when client connects (server sends start-mic). Set false to disable.
+  auto_start_microphone: true
+  # Launch only in pet/desktop overlay mode (no main window). Requires client support.
+  launch_pet_mode_only: false
+  # RAG (Retrieval-Augmented Generation) with ChromaDB vector store
+  rag_config:
+    enabled: true
+    persist_directory: './cache/rag_chroma'
+    collection_name: 'open_llm_vtuber_rag'
+    embedding_model: 'BorisTM/bge-m3_en_ru'  # EN/RU embeddings: https://huggingface.co/BorisTM/bge-m3_en_ru
+    n_results: 5
+    documents_dir: null  # e.g. './knowledge_base' - create dir + add .txt/.md, or use ingest script
+    dialogue_memory_collection: 'open_llm_vtuber_dialogue_memory'
+    memory_n_results: 3
+    memory_cleanup_days: 30
 
 # configuration for the default character
 character_config:
@@ -56,8 +71,8 @@ character_config:
         # and set the required parameters in the corresponding field
         # examples: 
         # 'openai_compatible_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
-        # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
-        # 'mistral_llm', 'lmstudio_llm', and more
+        # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'aitunel_llm', 'routerai_llm'
+        # 'groq_llm', 'mistral_llm', 'lmstudio_llm', and more
         llm_provider: 'ollama_llm'
         # let ai speak as soon as the first comma is received on the first sentence
         # to reduced latency.
@@ -159,6 +174,18 @@ character_config:
         llm_api_key: 'Your DeepSeek API key'
         model: 'deepseek-chat'
         temperature: 0.7 # note that deepseek's temperature ranges from 0 to 1
+
+      # AITUNEL: GPT 4.1 Nano etc - https://api.aitunnel.ru/v1/
+      aitunel_llm:
+        llm_api_key: 'ваш_ключ_aitunnel'
+        model: 'gpt-4.1-nano'
+        temperature: 1.0
+
+      # RouterAI: MoonshotAI Kimi K2 etc - https://routerai.ru/api/v1
+      routerai_llm:
+        llm_api_key: 'YOUR_API_KEY'
+        model: 'moonshotai/kimi-k2-thinking'
+        temperature: 1.0
       
       mistral_llm:
         llm_api_key: 'Your Mistral API key'
@@ -172,8 +199,8 @@ character_config:
 
   # === Automatic Speech Recognition ===
   asr_config:
-    # speech to text model options: 'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr'
-    asr_model: 'sherpa_onnx_asr'
+    # speech to text model options: 'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr', 'gigaam_onnx_asr'
+    asr_model: 'gigaam_onnx_asr'
 
     azure_asr:
       api_key: 'azure_api_key'
@@ -263,7 +290,14 @@ character_config:
       # feature_dim: 80       # Feature dimension (should match the model's expected feature dimension)
       use_itn: True # Enable ITN for SenseVoice models (should set to False if not using SenseVoice models)
       # Provider for inference (cpu or cuda) (cuda option needs additional settings. Please check our docs)
-      provider: 'cpu' 
+      provider: 'cpu'
+
+    # GigaAM ONNX ASR - Russian speech recognition (pip install onnx-asr[cpu,hub])
+    # Copy model.onnx->v3_e2e_ctc.onnx and vocab.txt->v3_e2e_ctc_vocab.txt in the model dir
+    gigaam_onnx_asr:
+      model_path: './models/gigaam-v3-e2e-ctc'
+      model_type: 'gigaam-v3-e2e-ctc'  # or 'gigaam-v3-ctc'
+      quantization: null  # null or 'int8'
 
     groq_whisper_asr:
       api_key: ''
@@ -276,7 +310,7 @@ character_config:
     # text to speech model options:
     #   'azure_tts', 'pyttsx3_tts', 'edge_tts', 'bark_tts',
     #   'cosyvoice_tts', 'melo_tts', 'coqui_tts', 'piper_tts',
-    #   'fish_api_tts', 'x_tts', 'gpt_sovits_tts', 'sherpa_onnx_tts'
+    #   'fish_api_tts', 'x_tts', 'gpt_sovits_tts', 'sherpa_onnx_tts', 'silero_tts'
     #   'minimax_tts', 'elevenlabs_tts', 'cartesia_tts'
 
     azure_tts:
@@ -305,6 +339,16 @@ character_config:
       volume: 1.0               # Volume level (0.0–1.0; 1.0 = normal)
       normalize_audio: true     # Whether to normalize audio (recommended: true, for more consistent volume)
       use_cuda: false           # Whether to use GPU acceleration (requires onnxruntime-gpu)
+
+    # Local Russian TTS - no API key, runs offline (snakers4/silero-models)
+    silero_tts:
+      language: 'ru'
+      model_id: 'v5_1_ru'       # Russian model: v5_1_ru, v5_ru, v4_ru
+      speaker: 'xenia'          # Voice: xenia, baya, aidar, kseniya, etc.
+      sample_rate: 48000        # 8000, 24000, or 48000
+      device: 'cpu'             # cpu or cuda
+      put_accent: true          # Auto Russian stress marks
+      put_yo: true              # Use letter ё
 
     cosyvoice_tts: # Cosy Voice TTS connects to the gradio webui
       # Check their documentation for deployment and the meaning of the following configurations

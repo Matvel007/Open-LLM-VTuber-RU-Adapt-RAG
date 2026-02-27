@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Callable, TypedDict
 from fastapi import WebSocket, WebSocketDisconnect
 import asyncio
 import json
+import time
 from enum import Enum
 import numpy as np
 from loguru import logger
@@ -21,7 +22,19 @@ from .chat_history_manager import (
     delete_history,
     get_history_list,
 )
-from .config_manager.utils import scan_config_alts_directory, scan_bg_directory
+from .config_manager.utils import (
+    load_last_character,
+    persist_live2d_model_to_character,
+    scan_config_alts_directory,
+    scan_bg_directory,
+)
+from .live2d_models import (
+    add_model_to_dict,
+    create_default_model_entry,
+    get_merged_model_list,
+    load_model_dict,
+    scan_live2d_models_dir,
+)
 from .conversations.conversation_handler import (
     handle_conversation_trigger,
     handle_group_interrupt,
@@ -69,6 +82,7 @@ class WebSocketHandler:
         self.current_conversation_tasks: Dict[str, Optional[asyncio.Task]] = {}
         self.default_context_cache = default_context_cache
         self.received_data_buffers: Dict[str, np.ndarray] = {}
+        self._client_connection_times: Dict[str, float] = {}
 
         # Message handlers mapping
         self._message_handlers = self._init_message_handlers()
@@ -95,6 +109,11 @@ class WebSocketHandler:
             "audio-play-start": self._handle_audio_play_start,
             "request-init-config": self._handle_init_config_request,
             "heartbeat": self._handle_heartbeat,
+            "rag-memory-list": self._handle_rag_memory_list,
+            "rag-memory-delete": self._handle_rag_memory_delete,
+            "rag-memory-clear-all": self._handle_rag_memory_clear_all,
+            "fetch-live2d-models": self._handle_fetch_live2d_models,
+            "set-live2d-model": self._handle_set_live2d_model,
         }
 
     async def handle_new_connection(
@@ -125,9 +144,10 @@ class WebSocketHandler:
 
             logger.info(f"Connection established for client {client_uid}")
 
-        except Exception as e:
-            logger.error(
-                f"Failed to initialize connection for client {client_uid}: {e}"
+        except Exception:
+            logger.exception(
+                "Failed to initialize connection for client {}",
+                client_uid,
             )
             await self._cleanup_failed_connection(client_uid)
             raise
@@ -142,6 +162,7 @@ class WebSocketHandler:
         self.client_connections[client_uid] = websocket
         self.client_contexts[client_uid] = session_service_context
         self.received_data_buffers[client_uid] = np.array([])
+        self._client_connection_times[client_uid] = time.monotonic()
 
         self.chat_group_manager.client_group_map[client_uid] = ""
         await self.send_group_update(websocket, client_uid)
@@ -165,6 +186,7 @@ class WebSocketHandler:
                     "conf_name": session_service_context.character_config.conf_name,
                     "conf_uid": session_service_context.character_config.conf_uid,
                     "client_uid": client_uid,
+                    "launch_pet_mode_only": session_service_context.system_config.launch_pet_mode_only,
                 }
             )
         )
@@ -172,8 +194,12 @@ class WebSocketHandler:
         # Send initial group status
         await self.send_group_update(websocket, client_uid)
 
-        # Start microphone
-        await websocket.send_text(json.dumps({"type": "control", "text": "start-mic"}))
+        # Auto-start microphone if enabled in system config (client may still skip
+        # based on its own disableAutoStartMicOnConnect setting)
+        if session_service_context.system_config.auto_start_microphone:
+            await websocket.send_text(
+                json.dumps({"type": "control", "text": "start-mic"})
+            )
 
     async def _init_service_context(
         self, send_text: Callable, client_uid: str
@@ -198,6 +224,8 @@ class WebSocketHandler:
             tool_adapter=self.default_context_cache.tool_adapter,
             send_text=send_text,
             client_uid=client_uid,
+            rag_engine=self.default_context_cache.rag_engine,
+            dialogue_memory=self.default_context_cache.dialogue_memory,
         )
         return session_service_context
 
@@ -297,10 +325,12 @@ class WebSocketHandler:
             send_group_update=self.send_group_update,
         )
 
-        # Clean up other client data
+        # Clean up other client data (get context before popping)
+        context = self.client_contexts.get(client_uid)
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
+        self._client_connection_times.pop(client_uid, None)
         if client_uid in self.current_conversation_tasks:
             task = self.current_conversation_tasks[client_uid]
             if task and not task.done():
@@ -308,7 +338,6 @@ class WebSocketHandler:
             self.current_conversation_tasks.pop(client_uid, None)
 
         # Call context close to clean up resources (e.g., MCPClient)
-        context = self.client_contexts.get(client_uid)
         if context:
             await context.close()
 
@@ -320,6 +349,7 @@ class WebSocketHandler:
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
+        self._client_connection_times.pop(client_uid, None)
         self.chat_group_manager.client_group_map.pop(client_uid, None)
 
         if client_uid in self.current_conversation_tasks:
@@ -394,9 +424,22 @@ class WebSocketHandler:
     async def _handle_history_list_request(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
-        """Handle request for chat history list"""
+        """Handle request for chat history list.
+
+        When histories exist and context has no history_uid yet, auto-loads
+        the most recent history so the agent has conversation memory on reconnect.
+        """
         context = self.client_contexts[client_uid]
         histories = get_history_list(context.character_config.conf_uid)
+
+        # Set history_uid for storing new messages and RAG queries.
+        # Do NOT load old dialogue — AI remembers via RAG (profile, facts).
+        if histories and not context.history_uid:
+            context.history_uid = histories[0]["uid"]
+            if hasattr(context.agent_engine, "clear_memory"):
+                context.agent_engine.clear_memory()
+            logger.debug(f"Using history for RAG: {context.history_uid}")
+
         await websocket.send_text(
             json.dumps({"type": "history-list", "histories": histories})
         )
@@ -432,8 +475,31 @@ class WebSocketHandler:
     async def _handle_create_history(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
-        """Handle creation of new chat history"""
+        """Handle creation of new chat history.
+
+        On initial connect, the frontend sends both fetch-history-list and
+        create-new-history. When create-new-history arrives shortly after
+        connect and histories exist, we resume the most recent instead of
+        creating a new one, so chat memory persists across server restarts.
+        """
         context = self.client_contexts[client_uid]
+        histories = get_history_list(context.character_config.conf_uid)
+        connect_time = self._client_connection_times.get(client_uid, 0)
+        seconds_since_connect = time.monotonic() - connect_time
+
+        # Resume history_uid for RAG (profile, facts). Chat stays empty.
+        if histories and seconds_since_connect < 3.0:
+            history_uid = histories[0]["uid"]
+            context.history_uid = history_uid
+            if hasattr(context.agent_engine, "clear_memory"):
+                context.agent_engine.clear_memory()
+            await websocket.send_text(
+                json.dumps({"type": "new-history-created", "history_uid": history_uid})
+            )
+            # Do NOT send history-data — chat always starts empty, AI remembers via RAG
+            logger.debug(f"Resumed history for RAG (empty chat): {history_uid}")
+            return
+
         history_uid = create_new_history(context.character_config.conf_uid)
         if history_uid:
             context.history_uid = history_uid
@@ -610,3 +676,177 @@ class WebSocketHandler:
             await websocket.send_json({"type": "heartbeat-ack"})
         except Exception as e:
             logger.error(f"Error sending heartbeat acknowledgment: {e}")
+
+    async def _handle_rag_memory_list(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Handle RAG memory list request."""
+        context = self.client_contexts.get(client_uid)
+        if not context or not context.dialogue_memory:
+            await websocket.send_text(
+                json.dumps({"type": "rag-memory-list-response", "items": []})
+            )
+            return
+        conf_uid = data.get("conf_uid") or context.character_config.conf_uid
+        history_uid = data.get("history_uid") or context.history_uid or ""
+        role = data.get("role")
+        if role == "":
+            role = None
+        items = context.dialogue_memory.list_items(
+            conf_uid=conf_uid,
+            history_uid=history_uid if history_uid else None,
+            role=role,
+            limit=200,
+        )
+        await websocket.send_text(
+            json.dumps({"type": "rag-memory-list-response", "items": items})
+        )
+
+    async def _handle_rag_memory_delete(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Handle RAG memory delete request (single record)."""
+        context = self.client_contexts.get(client_uid)
+        if not context or not context.dialogue_memory:
+            await websocket.send_text(
+                json.dumps({"type": "rag-memory-deleted", "success": False})
+            )
+            return
+        record_id = data.get("id")
+        if not record_id:
+            await websocket.send_text(
+                json.dumps({"type": "rag-memory-deleted", "success": False})
+            )
+            return
+        count = context.dialogue_memory.delete_by_ids([record_id])
+        await websocket.send_text(
+            json.dumps({"type": "rag-memory-deleted", "success": count > 0})
+        )
+
+    async def _handle_rag_memory_clear_all(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Handle RAG memory clear-all request."""
+        context = self.client_contexts.get(client_uid)
+        if not context or not context.dialogue_memory:
+            await websocket.send_text(
+                json.dumps({"type": "rag-memory-cleared", "success": False, "count": 0})
+            )
+            return
+        conf_uid = data.get("conf_uid") or context.character_config.conf_uid
+        history_uid = data.get("history_uid") or context.history_uid or ""
+        count = context.dialogue_memory.delete_all(
+            conf_uid=conf_uid,
+            history_uid=history_uid if history_uid else None,
+        )
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "type": "rag-memory-cleared",
+                    "success": True,
+                    "count": count,
+                }
+            )
+        )
+
+    async def _handle_fetch_live2d_models(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Handle Live2D model list request (model_dict + auto-scanned)."""
+        models = get_merged_model_list()
+        await websocket.send_text(
+            json.dumps({"type": "live2d-models-list", "models": models})
+        )
+
+    async def _handle_set_live2d_model(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Handle Live2D model selection. Add to model_dict if needed, persist to config."""
+        model_name = data.get("model_name")
+        if not model_name or not isinstance(model_name, str):
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "live2d-model-set",
+                        "success": False,
+                        "message": "model_name is required",
+                    }
+                )
+            )
+            return
+
+        context = self.client_contexts.get(client_uid)
+        if not context:
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "live2d-model-set",
+                        "success": False,
+                        "message": "No client context",
+                    }
+                )
+            )
+            return
+
+        model_dict_list = load_model_dict()
+        scanned = scan_live2d_models_dir()
+        scanned_by_name = {s.get("name"): s for s in scanned if s.get("name")}
+        in_dict = next(
+            (m for m in model_dict_list if m.get("name") == model_name), None
+        )
+
+        if not in_dict and model_name not in scanned_by_name:
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "live2d-model-set",
+                        "success": False,
+                        "message": f"Model '{model_name}' not found in live2d-models",
+                    }
+                )
+            )
+            return
+
+        if not in_dict:
+            s = scanned_by_name[model_name]
+            entry = create_default_model_entry(
+                name=model_name,
+                url=s.get("url", f"/live2d-models/{model_name}/model.model3.json"),
+            )
+            add_model_to_dict(entry)
+
+        try:
+            context.init_live2d(model_name)
+            context.character_config.live2d_model_name = model_name
+
+            self.default_context_cache.init_live2d(model_name)
+            self.default_context_cache.character_config.live2d_model_name = model_name
+
+            last_char = load_last_character() or "conf.yaml"
+            persist_live2d_model_to_character(
+                live2d_model_name=model_name,
+                config_file_name=last_char,
+                config_alts_dir=context.system_config.config_alts_dir,
+            )
+
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "set-model-and-conf",
+                        "model_info": context.live2d_model.model_info,
+                        "conf_name": context.character_config.conf_name,
+                        "conf_uid": context.character_config.conf_uid,
+                    }
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to set Live2D model: {e}")
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "live2d-model-set",
+                        "success": False,
+                        "message": str(e),
+                    }
+                )
+            )

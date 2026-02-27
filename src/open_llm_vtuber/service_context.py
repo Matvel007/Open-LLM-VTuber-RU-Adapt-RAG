@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 from typing import Callable
 from loguru import logger
 from fastapi import WebSocket
@@ -19,6 +20,7 @@ from .mcpp.tool_executor import ToolExecutor
 from .mcpp.tool_adapter import ToolAdapter
 
 from .asr.asr_factory import ASRFactory
+from .rag import ChromaRAG, DialogueMemory
 from .tts.tts_factory import TTSFactory
 from .vad.vad_factory import VADFactory
 from .agent.agent_factory import AgentFactory
@@ -28,6 +30,7 @@ from .config_manager import (
     Config,
     AgentConfig,
     CharacterConfig,
+    RAGConfig,
     SystemConfig,
     ASRConfig,
     TTSConfig,
@@ -36,6 +39,7 @@ from .config_manager import (
     read_yaml,
     validate_config,
 )
+from .config_manager.utils import persist_last_character as _persist_last_character
 
 
 class ServiceContext:
@@ -60,6 +64,9 @@ class ServiceContext:
         self.tool_manager: ToolManager | None = None
         self.mcp_client: MCPClient | None = None
         self.tool_executor: ToolExecutor | None = None
+
+        self.rag_engine: ChromaRAG | None = None
+        self.dialogue_memory: DialogueMemory | None = None
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.system_prompt: str = None
@@ -213,6 +220,8 @@ class ServiceContext:
         tool_adapter: ToolAdapter | None = None,
         send_text: Callable = None,
         client_uid: str = None,
+        rag_engine: ChromaRAG | None = None,
+        dialogue_memory: DialogueMemory | None = None,
     ) -> None:
         """
         Load the ServiceContext with the reference of the provided instances.
@@ -237,6 +246,10 @@ class ServiceContext:
         self.tool_adapter = tool_adapter
         self.send_text = send_text
         self.client_uid = client_uid
+        if rag_engine is not None:
+            self.rag_engine = rag_engine
+        if dialogue_memory is not None:
+            self.dialogue_memory = dialogue_memory
 
         # Initialize session-specific MCP components
         await self._init_mcp_components(
@@ -305,6 +318,8 @@ class ServiceContext:
         self.init_translate(
             config.character_config.tts_preprocessor_config.translator_config
         )
+
+        self.init_rag(config.system_config.rag_config if config.system_config else None)
 
         # store typed config references
         self.config = config
@@ -431,6 +446,46 @@ class ServiceContext:
         else:
             logger.info("Translation already initialized with the same config.")
 
+    def init_rag(self, rag_config: RAGConfig | None) -> None:
+        """Initialize or disable the RAG engine based on configuration."""
+        if not rag_config or not rag_config.enabled:
+            self.rag_engine = None
+            if rag_config and not rag_config.enabled:
+                logger.debug("RAG is disabled.")
+            return
+        try:
+            self.rag_engine = ChromaRAG(
+                persist_directory=rag_config.persist_directory,
+                collection_name=rag_config.collection_name,
+                embedding_model=rag_config.embedding_model,
+            )
+            if rag_config.documents_dir:
+                docs_path = Path(rag_config.documents_dir)
+                if docs_path.is_dir():
+                    count = self.rag_engine.add_documents_from_directory(
+                        rag_config.documents_dir
+                    )
+                    logger.info(
+                        f"RAG loaded {count} chunks from {rag_config.documents_dir}"
+                    )
+                else:
+                    logger.warning(
+                        f"RAG documents_dir not found: {rag_config.documents_dir}. "
+                        "Create the directory and add .txt/.md files, or run "
+                        "scripts/ingest_rag_documents.py --dir <path>"
+                    )
+            self.dialogue_memory = DialogueMemory(
+                persist_directory=rag_config.persist_directory,
+                collection_name=getattr(rag_config, "dialogue_memory_collection", "")
+                or "open_llm_vtuber_dialogue_memory",
+                embedding_model=rag_config.embedding_model,
+            )
+            logger.info("RAG and DialogueMemory initialized with ChromaDB.")
+        except Exception as e:
+            logger.error(f"Failed to initialize RAG: {e}")
+            self.rag_engine = None
+            self.dialogue_memory = None
+
     # ==== utils
 
     async def construct_system_prompt(self, persona_prompt: str) -> str:
@@ -539,6 +594,7 @@ class ServiceContext:
                     )
                 )
 
+                _persist_last_character(config_file_name)
                 logger.info(f"Configuration switched to {config_file_name}")
             else:
                 raise ValueError(

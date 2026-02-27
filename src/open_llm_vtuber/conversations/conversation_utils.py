@@ -130,6 +130,19 @@ async def handle_audio_output(
     return full_response
 
 
+async def safe_websocket_send(websocket_send: WebSocketSend, data: str) -> bool:
+    """Send data via WebSocket. Return False if send failed (e.g. client disconnected)."""
+    try:
+        await websocket_send(data)
+        return True
+    except (AssertionError, ConnectionError, RuntimeError, OSError) as e:
+        logger.debug(f"Could not send to client (likely disconnected): {e}")
+        return False
+    except Exception as e:
+        logger.debug(f"WebSocket send failed: {e}")
+        return False
+
+
 async def send_conversation_start_signals(websocket_send: WebSocketSend) -> None:
     """Send initial conversation signals"""
     await websocket_send(
@@ -168,7 +181,9 @@ async def finalize_conversation_turn(
     """Finalize a conversation turn"""
     if tts_manager.task_list:
         await asyncio.gather(*tts_manager.task_list)
-        await websocket_send(json.dumps({"type": "backend-synth-complete"}))
+        await safe_websocket_send(
+            websocket_send, json.dumps({"type": "backend-synth-complete"})
+        )
 
         response = await message_handler.wait_for_response(
             client_uid, "frontend-playback-complete"
@@ -178,7 +193,7 @@ async def finalize_conversation_turn(
             logger.warning(f"No playback completion response from {client_uid}")
             return
 
-    await websocket_send(json.dumps({"type": "force-new-message"}))
+    await safe_websocket_send(websocket_send, json.dumps({"type": "force-new-message"}))
 
     if broadcast_ctx and broadcast_ctx.broadcast_func:
         await broadcast_ctx.broadcast_func(
@@ -201,7 +216,7 @@ async def send_conversation_end_signal(
         "text": "conversation-chain-end",
     }
 
-    await websocket_send(json.dumps(chain_end_msg))
+    await safe_websocket_send(websocket_send, json.dumps(chain_end_msg))
 
     if broadcast_ctx and broadcast_ctx.broadcast_func and broadcast_ctx.group_members:
         await broadcast_ctx.broadcast_func(
