@@ -20,9 +20,9 @@
 
 **Видео:**
 
-https://github.com/user-attachments/assets/1ce3f18c-3a50-4a20-9c49-e9810c402d4b
+<video src="https://github.com/user-attachments/assets/1ce3f18c-3a50-4a20-9c49-e9810c402d4b" controls width="480"></video>
 
-https://github.com/user-attachments/assets/b373e4c0-4a23-4eb1-9f8b-0294baae5467
+<video src="https://github.com/user-attachments/assets/b373e4c0-4a23-4eb1-9f8b-0294baae5467" controls width="480"></video>
 
 ## ✨ Что нового в моде RU-Adapt-RAG
 
