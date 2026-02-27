@@ -15,9 +15,13 @@
 This is a **mod** of **Open-LLM-VTuber** with Russian support, RAG system, and extra features. Voice AI companion with Live2D avatar, speech recognition, and visual perception. Runs offline. Platform: Windows.
 
 ### 👀 Demo
-| ![](assets/i1.jpg) | ![](assets/i2.jpg) |
-|:---:|:---:|
-| ![](assets/i3.jpg) | ![](assets/i4.jpg) |
+
+![](assets/demo_screenshot.png)
+
+**Videos:**
+
+<video src="assets/demo_video_1.mp4" controls width="500"></video>  
+<video src="assets/demo_video_2.mp4" controls width="500"></video>
 
 ## ✨ What's new in RU-Adapt-RAG mod
 
