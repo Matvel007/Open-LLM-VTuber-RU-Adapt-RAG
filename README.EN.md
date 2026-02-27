@@ -20,9 +20,9 @@ This is a **mod** of **Open-LLM-VTuber** with Russian support, RAG system, and e
 
 **Videos:**
 
-<video src="https://github.com/user-attachments/assets/1ce3f18c-3a50-4a20-9c49-e9810c402d4b" controls width="480"></video>
+https://github.com/user-attachments/assets/1ce3f18c-3a50-4a20-9c49-e9810c402d4b
 
-<video src="https://github.com/user-attachments/assets/b373e4c0-4a23-4eb1-9f8b-0294baae5467" controls width="480"></video>
+https://github.com/user-attachments/assets/b373e4c0-4a23-4eb1-9f8b-0294baae5467
 
 ## ✨ What's new in RU-Adapt-RAG mod
 
