@@ -20,9 +20,9 @@
 
 **Видео:**
 
-![Видео 1](https://github.com/Matvel007/Open-LLM-VTuber-RU-Adapt-RAG/raw/main/assets/demo_video_1.mp4)
+![Видео 1](https://github.com/user-attachments/assets/1ce3f18c-3a50-4a20-9c49-e9810c402d4b)
 
-![Видео 2](https://github.com/Matvel007/Open-LLM-VTuber-RU-Adapt-RAG/raw/main/assets/demo_video_2.mp4)
+![Видео 2](https://github.com/user-attachments/assets/b373e4c0-4a23-4eb1-9f8b-0294baae5467)
 
 ## ✨ Что нового в моде RU-Adapt-RAG
 
